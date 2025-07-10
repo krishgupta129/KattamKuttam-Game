@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KATTAM KUTTAM</title>
+  <style>
+    :root {
+      --background-color: #fff;
+      --text-color: #000;
+      --cell-background-color: #fff;
+      --cell-border-color: #000;
+    }
+    .dark-theme {
+      --background-color: #333;
+      --text-color: #fff;
+      --cell-background-color: #555;
+      --cell-border-color: #fff;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: var(--background-color);
+      color: var(--text-color);
+    }
+    .board {
+      display: grid;
+      gap: 5px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+    .cell {
+      background-color: var(--cell-background-color);
+      border: 1px solid var(--cell-border-color);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2.5em;
+      cursor: pointer;
+    }
+
+    button {
+      width: 200px;
+      padding: 10px 0;
+      font-size: 1.5em;
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    .menu {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.5em;
+      margin-bottom: 20px;
+    }
+    .menu-title {
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+
+    .game-buttons {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #message {
+      font-size: 1.5em;
+      margin-top: 10px;
+    }
+
+    input[type="checkbox"] {
+      transform: scale(1.5);
+      margin-right: 5px;
+    }
+
+    .submenu {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="menu" class="menu">
+    <h1 class="menu-title">KATTAM KUTTAM</h1>
+    <button onclick="startPvP()">PvP</button>
+    <button onclick="startAI()">vs AI</button>
+    <button onclick="toggleSettings()">Settings</button>
+  </div>
+
+  <div id="settings" class="menu" style="display: none;">
+    <h1 class="menu-title">Settings</h1>
+    <label>
+      Dark Theme:
+      <input type="checkbox" id="darkThemeToggle" onchange="toggleDarkTheme()">
+    </label>
+    <button onclick="toggleGridSizeMenu()">Grid Size</button>
+    <div id="gridSizeMenu" class="submenu">
+      <label><input type="radio" name="gridSize" value="3x3" checked> 3x3</label>
+      <label><input type="radio" name="gridSize" value="4x4"> 4x4</label>
+      <label><input type="radio" name="gridSize" value="5x5"> 5x5</label>
+      <div id="winConditionMenu" class="submenu">
+        <label><input type="radio" name="winCondition" value="4" checked> 4 mark win</label>
+        <label><input type="radio" name="winCondition" value="5"> 5 mark win</label>
+      </div>
+    </div>
+    <button onclick="backToMenu()">Back to Menu</button>
+  </div>
+
+  <div id="game" style="display: none;">
+    <h1 id="gameTitle">KATTAM KUTTAM</h1>
+    <div class="board" id="board"></div>
+    <div id="message"></div>
+    <div class="game-buttons">
+      <button id="resetButton">Reset Board</button>
+      <button id="backToMenuButton">Back to Menu</button>
+    </div>
+  </div>
+
+  <script>
+    let isPvP = true;
+    let gridSize = 3;
+    let winCondition = 3;
+    const menuDiv = document.getElementById('menu');
+    const settingsDiv = document.getElementById('settings');
+    const gameDiv = document.getElementById('game');
+    const board = document.getElementById('board');
+    const resetButton = document.getElementById('resetButton');
+    const backToMenuButton = document.getElementById('backToMenuButton');
+    const message = document.getElementById('message');
+    const darkThemeToggle = document.getElementById('darkThemeToggle');
+    const gridSizeMenu = document.getElementById('gridSizeMenu');
+    const winConditionMenu = document.getElementById('winConditionMenu');
+    let currentPlayer = 'X';
+    let lineCanvas;
+
+    document.querySelectorAll('input[name="gridSize"]').forEach(radio => {
+      radio.addEventListener('change', event => {
+        gridSize = parseInt(event.target.value[0]);
+        updateWinCondition();
+        startGame();
+      });
+    });
+
+    document.querySelectorAll('input[name="winCondition"]').forEach(radio => {
+      radio.addEventListener('change', updateWinCondition);
+    });
+
+    function updateWinCondition() {
+      if (gridSize === 5) {
+        winConditionMenu.style.display = 'flex';
+        winCondition = parseInt(document.querySelector('input[name="winCondition"]:checked').value);
+      } else {
+        winConditionMenu.style.display = 'none';
+        winCondition = gridSize;
+      }
+      startGame();
+    }
+
+    function startPvP() {
+      isPvP = true;
+      menuDiv.style.display = 'none';
+      gameDiv.style.display = 'block';
+      document.getElementById('gameTitle').textContent = 'KATTAM KUTTAM';
+      startGame();
+    }
+
+    function startAI() {
+      isPvP = false;
+      menuDiv.style.display = 'none';
+      gameDiv.style.display = 'block';
+      document.getElementById('gameTitle').textContent = 'KATTAM KUTTAM';
+      startGame();
+      makeAIMove();
+    }
+
+    function startGame() {
+      board.innerHTML = '';
+      board.style.gridTemplateColumns = `repeat(${gridSize}, minmax(${gridSize == 5 ? 60 : 80}px, 1fr))`;
+      board.style.gridTemplateRows = `repeat(${gridSize}, minmax(${gridSize == 5 ? 60 : 80}px, 1fr))`;
+
+      for (let i = 0; i < gridSize * gridSize; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.setAttribute('data-cell', '');
+        cell.addEventListener('click', handleClick, { once: true });
+        board.appendChild(cell);
+      }
+
+      currentPlayer = 'X';
+      message.textContent = '';
+      resetLineCanvas();
+    }
+
+    function handleClick(e) {
+      const cell = e.target;
+      if (cell.textContent !== '') return;
+      cell.textContent = currentPlayer;
+
+      if (checkWin(currentPlayer)) {
+        message.textContent = currentPlayer + ' wins!';
+        drawRedLine();
+        disableBoard();
+      } else if (isDraw()) {
+        message.textContent = 'Draw!';
+      } else {
+        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+        if (!isPvP && currentPlayer === 'O') makeAIMove();
+      }
+    }
+
+    function makeAIMove() {
+      let moveMade = checkWinningMove('O', gridSize, winCondition)
+        || checkWinningMove('X', gridSize, winCondition)
+        || checkWinningMove('X', gridSize - 1, winCondition);
+
+      if (!moveMade) {
+        const emptyCells = [...board.querySelectorAll('[data-cell]')].filter(cell => cell.textContent === '');
+        const randomIndex = Math.floor(Math.random() * emptyCells.length);
+        emptyCells[randomIndex].textContent = 'O';
+      }
+
+      if (checkWin('O')) {
+        message.textContent = 'AI wins!';
+        drawRedLine();
+        disableBoard();
+      } else if (isDraw()) {
+        message.textContent = 'Draw!';
+      }
+
+      currentPlayer = 'X';
+    }
+
+    function checkWin(player) {
+      const cells = [...board.querySelectorAll('[data-cell]')];
+      return generateWinningCombinations(gridSize).some(comb => comb.every(i => cells[i].textContent === player));
+    }
+
+    function isDraw() {
+      return [...board.querySelectorAll('[data-cell]')].every(cell => cell.textContent !== '');
+    }
+
+    function disableBoard() {
+      [...board.querySelectorAll('[data-cell]')].forEach(cell => cell.removeEventListener('click', handleClick));
+    }
+
+    function resetBoard() {
+      [...board.querySelectorAll('[data-cell]')].forEach(cell => {
+        cell.textContent = '';
+        cell.addEventListener('click', handleClick, { once: true });
+      });
+      currentPlayer = 'X';
+      message.textContent = '';
+      resetLineCanvas();
+    }
+
+    resetButton.addEventListener('click', resetBoard);
+    backToMenuButton.addEventListener('click', () => {
+      gameDiv.style.display = 'none';
+      menuDiv.style.display = 'flex';
+      resetLineCanvas();
+    });
+
+    function toggleSettings() {
+      menuDiv.style.display = 'none';
+      settingsDiv.style.display = 'flex';
+    }
+
+    function backToMenu() {
+      settingsDiv.style.display = 'none';
+      menuDiv.style.display = 'flex';
+    }
+
+    function toggleDarkTheme() {
+      document.documentElement.classList.toggle('dark-theme', darkThemeToggle.checked);
+    }
+
+    function toggleGridSizeMenu() {
+      gridSizeMenu.style.display = gridSizeMenu.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    function generateWinningCombinations(size) {
+      const combinations = [];
+      const win = size === 5 ? parseInt(document.querySelector('input[name="winCondition"]:checked').value) : size;
+
+      for (let i = 0; i < size * size; i += size)
+        for (let j = 0; j <= size - win; j++)
+          combinations.push(Array.from({ length: win }, (_, k) => i + j + k));
+
+      for (let i = 0; i < size; i++)
+        for (let j = 0; j <= size - win; j++)
+          combinations.push(Array.from({ length: win }, (_, k) => i + size * (j + k)));
+
+      for (let i = 0; i <= size - win; i++)
+        for (let j = 0; j <= size - win; j++)
+          combinations.push(Array.from({ length: win }, (_, k) => (i + k) * size + (j + k)));
+
+      for (let i = 0; i <= size - win; i++)
+        for (let j = win - 1; j < size; j++)
+          combinations.push(Array.from({ length: win }, (_, k) => (i + k) * size + (j - k)));
+
+      return combinations;
+    }
+
+    function resetLineCanvas() {
+      if (lineCanvas) {
+        lineCanvas.remove();
+        lineCanvas = null;
+      }
+    }
+
+    function drawRedLine() {
+      const cells = [...board.querySelectorAll('[data-cell]')];
+      const comb = generateWinningCombinations(gridSize).find(comb => comb.every(i => cells[i].textContent === currentPlayer));
+      if (!comb) return;
+
+      lineCanvas = document.createElement('canvas');
+      lineCanvas.style.position = 'absolute';
+      lineCanvas.style.top = '0';
+      lineCanvas.style.left = '0';
+      lineCanvas.width = board.clientWidth;
+      lineCanvas.height = board.clientHeight;
+      board.appendChild(lineCanvas);
+
+      const ctx = lineCanvas.getContext('2d');
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 5;
+
+      const getCoords = i => {
+        const rect = cells[i].getBoundingClientRect();
+        const boardRect = board.getBoundingClientRect();
+        return {
+          x: rect.left - boardRect.left + rect.width / 2,
+          y: rect.top - boardRect.top + rect.height / 2
+        };
+      };
+
+      const start = getCoords(comb[0]);
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      comb.slice(1).forEach(i => {
+        const { x, y } = getCoords(i);
+        ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    function checkWinningMove(player, alignments, winCondition) {
+      const cells = [...board.querySelectorAll('[data-cell]')];
+      const combs = generateWinningCombinations(gridSize);
+      for (let comb of combs) {
+        const marks = comb.map(i => cells[i].textContent);
+        const playerMarks = marks.filter(m => m === player).length;
+        if (playerMarks === winCondition - 1 && marks.includes('')) {
+          cells[comb[marks.indexOf('')]].textContent = 'O';
+          return true;
+        }
+      }
+      return false;
+    }
+  </script>
+</body>
+</html>
